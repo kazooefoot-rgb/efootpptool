@@ -38,7 +38,9 @@
     .param-column h4{margin:0 0 8px;font-size:14px}
     .param-row{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-top:1px dashed rgba(255,255,255,0.02)}
     .param-row:first-of-type{border-top:none}
-    @media (max-width:900px){.categories{grid-template-columns:1fr}.params-grid{grid-template-columns:1fr}}
+    .category-summary{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:12px}
+    .cat-summary-item{background:rgba(255,255,255,0.02);padding:8px;border-radius:6px;text-align:center}
+    @media (max-width:900px){.categories{grid-template-columns:1fr}.params-grid{grid-template-columns:1fr}.category-summary{grid-template-columns:repeat(2,1fr)}}
   </style>
 </head>
 <body>
@@ -78,6 +80,8 @@
     </div>
 
     <div class="categories" id="categories"></div>
+
+    <div class="category-summary" id="categorySummary"></div>
 
     <div class="params-grid">
       <div class="param-column" id="leftParams">
@@ -147,7 +151,9 @@
       remainingTalent: 0
     };
 
+    // 初期基礎値: デフォルト50、ただし指定されたGK系は40
     paramNames.forEach(p=>{ state.base[p] = 50; state.additional[p] = 0; });
+    ['GKセンス','キャッチング','クリアリング','コラプシング','ディフレクティング'].forEach(p=>{ if(state.base[p]!==undefined) state.base[p]=40; });
     CATEGORIES.forEach(c=> state.categoryCount[c.id] = 0);
 
     // コスト関数: 次の1回に必要なポイント
@@ -161,6 +167,7 @@
 
     // UI要素
     const categoriesEl = document.getElementById('categories');
+    const categorySummaryEl = document.getElementById('categorySummary');
     const leftParamsEl = document.getElementById('leftParams');
     const rightParamsEl = document.getElementById('rightParams');
     const levelInput = document.getElementById('level');
@@ -182,11 +189,23 @@
         const btn = document.createElement('button'); btn.textContent='+1 割り振る';
         btn.addEventListener('click', ()=>{ allocateCategory(cat.id,1); });
         row.appendChild(btn);
+        const minusBtn = document.createElement('button'); minusBtn.className='ghost'; minusBtn.textContent='-1';
+        minusBtn.addEventListener('click', ()=>{ removeCategory(cat.id); });
+        row.appendChild(minusBtn);
         const resetBtn = document.createElement('button'); resetBtn.className='ghost'; resetBtn.textContent='リセット';
         resetBtn.addEventListener('click', ()=>{ resetCategory(cat.id); });
         row.appendChild(resetBtn);
         div.appendChild(row);
         categoriesEl.appendChild(div);
+      });
+    }
+
+    function renderCategorySummary(){
+      categorySummaryEl.innerHTML = '';
+      CATEGORIES.forEach(cat=>{
+        const it = document.createElement('div'); it.className='cat-summary-item';
+        it.innerHTML = `<div style="font-size:12px;color:var(--muted)">${cat.name}</div><div style="font-weight:700;font-size:16px" id="sum${cat.id}">${state.categoryCount[cat.id]}</div>`;
+        categorySummaryEl.appendChild(it);
       });
     }
 
@@ -202,7 +221,11 @@
       const catCon = document.createElement('div'); catCon.className='small muted'; catCon.textContent = 'カテゴリ増加: ' + categoryContributionForParam(param);
       const addCon = document.createElement('div'); addCon.className='small muted'; addCon.textContent = 'アディショナル: ' + state.additional[param];
       const raw = document.createElement('div'); raw.className='small muted'; raw.textContent = '素の合計: ' + rawForParam(param);
-      const finalV = document.createElement('div'); finalV.className='small muted'; finalV.textContent = '補正後: ' + finalForParam(param);
+      const finalV = document.createElement('div'); finalV.className='small'; finalV.textContent = finalForParam(param);
+      // 強調表示
+      finalV.style.fontWeight = '700'; finalV.style.fontSize='14px';
+      const fv = finalForParam(param);
+      finalV.style.color = getFinalColor(fv);
 
       const plusBtn = document.createElement('button'); plusBtn.textContent='+1'; plusBtn.addEventListener('click', ()=>{ allocateAdditional(param,1); });
       const minusBtn = document.createElement('button'); minusBtn.className='ghost'; minusBtn.textContent='-1'; minusBtn.addEventListener('click', ()=>{ allocateAdditional(param,-1); });
@@ -212,6 +235,14 @@
 
       row.appendChild(left); row.appendChild(right);
       return row;
+    }
+
+    function getFinalColor(v){
+      // 70未満: 赤, 70〜79: オレンジ, 80〜89: 緑, 90以上: 青
+      if(v < 70) return '#ef4444';
+      if(v < 80) return '#f97316';
+      if(v < 90) return '#10b981';
+      return '#3b82f6';
     }
 
     function renderParamColumns(){
@@ -244,7 +275,6 @@
       for(let i=0;i<times;i++){
         const cost = costForNext(state.categoryCount[catId]);
         if(state.remainingTalent >= cost){
-          state.remainingTalent -= cost;
           state.categoryCount[catId] += 1;
         } else {
           alert('残りタレントポイントが足りません');
@@ -254,12 +284,17 @@
       updateAll();
     }
 
+    function removeCategory(catId){
+      if(state.categoryCount[catId] > 0){
+        state.categoryCount[catId] -= 1;
+        updateAll();
+      } else {
+        alert('これ以上減らせません');
+      }
+    }
+
     function resetCategory(catId){
-      const cnt = state.categoryCount[catId];
-      if(cnt===0) return;
-      let spent=0; for(let n=1;n<=cnt;n++) spent += Math.ceil(n/4);
       state.categoryCount[catId]=0;
-      state.remainingTalent += spent;
       updateAll();
     }
 
@@ -283,6 +318,7 @@
       state.level = 50; levelInput.value = 50;
       state.additionalPool = 0; additionalPoolInput.value = 0;
       paramNames.forEach(p=>{ state.base[p]=50; state.additional[p]=0; });
+      ['GKセンス','キャッチング','クリアリング','コラプシング','ディフレクティング'].forEach(p=>{ if(state.base[p]!==undefined) state.base[p]=40; });
       CATEGORIES.forEach(c=> state.categoryCount[c.id]=0);
       updateAll();
     }
@@ -313,15 +349,19 @@
       if(state.remainingTalent < 0) state.remainingTalent = 0;
       totalTalentEl.textContent = total;
       remainingTalentEl.textContent = state.remainingTalent;
+      additionalPoolInput.value = state.additionalPool;
 
       CATEGORIES.forEach(c=>{
         const cntEl = document.getElementById(`c${c.id}count`);
         const costEl = document.getElementById(`c${c.id}cost`);
         if(cntEl) cntEl.textContent = state.categoryCount[c.id];
         if(costEl) costEl.textContent = costForNext(state.categoryCount[c.id]);
+        const sumEl = document.getElementById(`sum${c.id}`);
+        if(sumEl) sumEl.textContent = state.categoryCount[c.id];
       });
 
       renderParamColumns();
+      renderCategorySummary();
     }
 
     document.getElementById('resetAll').addEventListener('click', resetAll);
