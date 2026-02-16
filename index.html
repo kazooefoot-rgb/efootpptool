@@ -33,7 +33,12 @@
     .centered{display:flex;align-items:center;justify-content:center}
     .footer{display:flex;gap:8px;justify-content:space-between;align-items:center;margin-top:12px}
     .param-actions{display:flex;gap:6px}
-    @media (max-width:900px){.categories{grid-template-columns:1fr}}
+    .params-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+    .param-column{background:var(--glass);padding:10px;border-radius:8px}
+    .param-column h4{margin:0 0 8px;font-size:14px}
+    .param-row{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-top:1px dashed rgba(255,255,255,0.02)}
+    .param-row:first-of-type{border-top:none}
+    @media (max-width:900px){.categories{grid-template-columns:1fr}.params-grid{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
@@ -74,17 +79,18 @@
 
     <div class="categories" id="categories"></div>
 
-    <div class="grid">
-      <div class="panel">
-        <h3>パラメータ一覧</h3>
-        <table id="paramsTable">
-          <thead>
-            <tr><th>パラメータ</th><th>基礎値</th><th>カテゴリ増加</th><th>アディショナル</th><th>素の合計</th><th>最終表示 (補正後)</th><th></th></tr>
-          </thead>
-          <tbody></tbody>
-        </table>
+    <div class="params-grid">
+      <div class="param-column" id="leftParams">
+        <h4>左側パラメータ</h4>
+        <!-- 左側のパラメータリストがここに入ります -->
       </div>
+      <div class="param-column" id="rightParams">
+        <h4>右側パラメータ</h4>
+        <!-- 右側のパラメータリストがここに入ります -->
+      </div>
+    </div>
 
+    <div class="grid">
       <div class="panel">
         <h3>計算の説明</h3>
         <div class="small muted">
@@ -95,6 +101,11 @@
           ・最終補正: 全パラメータに +1、さらに値が56以上なら+1、85以上ならさらに+1。<br>
           ・各項目にはリセットボタンがあります。
         </div>
+      </div>
+
+      <div class="panel">
+        <h3>操作ヘルプ</h3>
+        <div class="small muted">左のカラムは選手のオフェンス/パス/ドリブル系を中心、右のカラムは守備/GK/フィジカル系を中心に並べています。各パラメータは個別に基礎値を編集でき、アディショナルポイントで増減できます。</div>
       </div>
     </div>
 
@@ -119,8 +130,12 @@
       {id:10,name:'⑩ GKキャッチ系', params:['キャッチング','コラプシング']}
     ];
 
-    // パラメータの初期基礎値 (全て50にしておきますが、表で編集できます)
-    const paramNames = Array.from(new Set(CATEGORIES.flatMap(c=>c.params)));
+    // 左右の表示順をユーザー指定の順番に設定
+    const LEFT_PARAMS = ['オフェンスセンス','ボールコントロール','ドリブル','ボールキープ','グラウンダーパス','フライパス','決定力','ヘディング','プレースキック','カーブ','ディフェンスセンス','ボール奪取','アグレッシブネス'];
+    const RIGHT_PARAMS = ['守備意識','GKセンス','キャッチング','クリアリング','コラプシング','ディフレクティング','スピード','瞬発力','キック力','ジャンプ','フィジカルコンタクト','ボディコントロール','スタミナ'];
+
+    // 全パラメータの集合（左+右）
+    const paramNames = Array.from(new Set([...LEFT_PARAMS, ...RIGHT_PARAMS]));
 
     // 状態
     const state = {
@@ -144,9 +159,10 @@
       return Math.max(0, (Number(level)-1)*2);
     }
 
-    // UI初期化
+    // UI要素
     const categoriesEl = document.getElementById('categories');
-    const paramsTableBody = document.querySelector('#paramsTable tbody');
+    const leftParamsEl = document.getElementById('leftParams');
+    const rightParamsEl = document.getElementById('rightParams');
     const levelInput = document.getElementById('level');
     const totalTalentEl = document.getElementById('totalTalent');
     const remainingTalentEl = document.getElementById('remainingTalent');
@@ -174,29 +190,35 @@
       });
     }
 
-    function renderParams(){
-      paramsTableBody.innerHTML='';
-      paramNames.forEach(p=>{
-        const tr = document.createElement('tr');
-        const tdName = document.createElement('td'); tdName.textContent = p;
-        const tdBase = document.createElement('td');
-        const baseInput = document.createElement('input'); baseInput.type='number'; baseInput.value=state.base[p]; baseInput.style.width='72px';
-        baseInput.addEventListener('change', ()=>{ state.base[p]=Number(baseInput.value); updateAll(); });
-        tdBase.appendChild(baseInput);
+    function makeParamRow(param){
+      const row = document.createElement('div'); row.className='param-row';
+      const left = document.createElement('div'); left.style.display='flex'; left.style.alignItems='center'; left.style.gap='8px';
+      const name = document.createElement('div'); name.textContent = param; name.style.minWidth='120px';
+      const baseInput = document.createElement('input'); baseInput.type='number'; baseInput.value=state.base[param]; baseInput.style.width='72px';
+      baseInput.addEventListener('change', ()=>{ state.base[param]=Number(baseInput.value); updateAll(); });
+      left.appendChild(name); left.appendChild(baseInput);
 
-        const tdCat = document.createElement('td'); tdCat.textContent = categoryContributionForParam(p);
-        const tdAdd = document.createElement('td'); tdAdd.textContent = state.additional[p];
-        const tdRaw = document.createElement('td'); tdRaw.textContent = rawForParam(p);
-        const tdFinal = document.createElement('td'); tdFinal.textContent = finalForParam(p);
-        const tdActions = document.createElement('td');
-        const plusBtn = document.createElement('button'); plusBtn.textContent='+1'; plusBtn.addEventListener('click', ()=>{ allocateAdditional(p,1); });
-        const minusBtn = document.createElement('button'); minusBtn.className='ghost'; minusBtn.textContent='-1'; minusBtn.addEventListener('click', ()=>{ allocateAdditional(p,-1); });
-        const resetBtn = document.createElement('button'); resetBtn.className='ghost'; resetBtn.textContent='リセット'; resetBtn.addEventListener('click', ()=>{ resetParam(p); });
-        tdActions.appendChild(plusBtn); tdActions.appendChild(minusBtn); tdActions.appendChild(resetBtn);
+      const right = document.createElement('div'); right.style.display='flex'; right.style.alignItems='center'; right.style.gap='8px';
+      const catCon = document.createElement('div'); catCon.className='small muted'; catCon.textContent = 'カテゴリ増加: ' + categoryContributionForParam(param);
+      const addCon = document.createElement('div'); addCon.className='small muted'; addCon.textContent = 'アディショナル: ' + state.additional[param];
+      const raw = document.createElement('div'); raw.className='small muted'; raw.textContent = '素の合計: ' + rawForParam(param);
+      const finalV = document.createElement('div'); finalV.className='small muted'; finalV.textContent = '補正後: ' + finalForParam(param);
 
-        tr.appendChild(tdName); tr.appendChild(tdBase); tr.appendChild(tdCat); tr.appendChild(tdAdd); tr.appendChild(tdRaw); tr.appendChild(tdFinal); tr.appendChild(tdActions);
-        paramsTableBody.appendChild(tr);
-      });
+      const plusBtn = document.createElement('button'); plusBtn.textContent='+1'; plusBtn.addEventListener('click', ()=>{ allocateAdditional(param,1); });
+      const minusBtn = document.createElement('button'); minusBtn.className='ghost'; minusBtn.textContent='-1'; minusBtn.addEventListener('click', ()=>{ allocateAdditional(param,-1); });
+      const resetBtn = document.createElement('button'); resetBtn.className='ghost'; resetBtn.textContent='リセット'; resetBtn.addEventListener('click', ()=>{ resetParam(param); });
+
+      right.appendChild(catCon); right.appendChild(addCon); right.appendChild(raw); right.appendChild(finalV); right.appendChild(plusBtn); right.appendChild(minusBtn); right.appendChild(resetBtn);
+
+      row.appendChild(left); row.appendChild(right);
+      return row;
+    }
+
+    function renderParamColumns(){
+      leftParamsEl.querySelectorAll('.param-row').forEach(n=>n.remove());
+      rightParamsEl.querySelectorAll('.param-row').forEach(n=>n.remove());
+      LEFT_PARAMS.forEach(p=>{ leftParamsEl.appendChild(makeParamRow(p)); });
+      RIGHT_PARAMS.forEach(p=>{ rightParamsEl.appendChild(makeParamRow(p)); });
     }
 
     function categoryContributionForParam(param){
@@ -219,7 +241,6 @@
     }
 
     function allocateCategory(catId, times){
-      // allocate 'times' increments one-by-one to respect cost progression
       for(let i=0;i<times;i++){
         const cost = costForNext(state.categoryCount[catId]);
         if(state.remainingTalent >= cost){
@@ -234,10 +255,8 @@
     }
 
     function resetCategory(catId){
-      // refund all points spent on this category back to remaining
       const cnt = state.categoryCount[catId];
       if(cnt===0) return;
-      // compute spent points for cnt increases: sum_{n=1..cnt} ceil(n/4)
       let spent=0; for(let n=1;n<=cnt;n++) spent += Math.ceil(n/4);
       state.categoryCount[catId]=0;
       state.remainingTalent += spent;
@@ -249,7 +268,6 @@
         if(state.additionalPool >= delta){ state.additional[param] += delta; state.additionalPool -= delta; }
         else { alert('アディショナルポイントが足りません'); }
       } else {
-        // remove points and refund to pool
         const canRemove = Math.min(state.additional[param], -delta);
         state.additional[param] -= canRemove; state.additionalPool += canRemove;
       }
@@ -290,15 +308,12 @@
       state.level = Number(levelInput.value);
       state.additionalPool = Number(additionalPoolInput.value);
       const total = calcTotalTalent(state.level);
-      // compute spent on categories
       let spent=0; for(const id in state.categoryCount){ const cnt = state.categoryCount[id]; for(let n=1;n<=cnt;n++) spent += Math.ceil(n/4); }
-      // remainingTalent = total - spent
       state.remainingTalent = total - spent;
       if(state.remainingTalent < 0) state.remainingTalent = 0;
       totalTalentEl.textContent = total;
       remainingTalentEl.textContent = state.remainingTalent;
 
-      // update category displays
       CATEGORIES.forEach(c=>{
         const cntEl = document.getElementById(`c${c.id}count`);
         const costEl = document.getElementById(`c${c.id}cost`);
@@ -306,13 +321,9 @@
         if(costEl) costEl.textContent = costForNext(state.categoryCount[c.id]);
       });
 
-      // Update table
-      renderParams();
-
-      // Update param cells that show categoryContribution etc are updated via renderParams
+      renderParamColumns();
     }
 
-    // Buttons
     document.getElementById('resetAll').addEventListener('click', resetAll);
     document.getElementById('saveLocal').addEventListener('click', saveLocal);
     document.getElementById('loadLocal').addEventListener('click', loadLocal);
