@@ -1,159 +1,329 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<title>eFootball 育成ツール</title>
-
-<style>
-body {
-  font-family: sans-serif;
-  text-align: center;
-  background: #f4f4f4;
-  margin: 0;
-  padding: 20px;
-}
-
-.container {
-  max-width: 600px;
-  margin: auto;
-  background: white;
-  padding: 20px;
-  border-radius: 10px;
-  box-shadow: 0 0 10px rgba(0,0,0,0.1);
-}
-
-h1 {
-  margin-bottom: 20px;
-}
-
-button {
-  padding: 5px 10px;
-  margin: 2px;
-  cursor: pointer;
-}
-
-.stat-row {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  margin: 5px 0;
-}
-
-.stat-row span {
-  width: 120px;
-  display: inline-block;
-  text-align: right;
-  margin-right: 10px;
-}
-
-.points {
-  font-weight: bold;
-  margin: 10px 0;
-}
-
-.reset-btn {
-  margin-top: 15px;
-  padding: 8px 15px;
-  background: #ff4d4d;
-  color: white;
-  border: none;
-  border-radius: 5px;
-}
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>eFootball タレントポイントツール</title>
+  <style>
+    :root{--bg:#0f1724;--card:#0b1220;--accent:#60a5fa;--muted:#94a3b8;--glass:rgba(255,255,255,0.03)}
+    *{box-sizing:border-box}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,"Hiragino Kaku Gothic ProN",Meiryo,sans-serif;background:linear-gradient(180deg,#071029 0%, #071c2b 100%);color:#e6eef8;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+    .app{width:1100px;max-width:100%;background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent);border-radius:12px;padding:22px;box-shadow:0 8px 30px rgba(2,6,23,0.7);}
+    h1{margin:0 0 8px;font-size:20px}
+    .top{display:flex;gap:16px;align-items:center;margin-bottom:12px}
+    .panel{background:var(--card);padding:12px;border-radius:10px;flex:1}
+    label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+    input[type="number"],select{width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit}
+    .center{display:flex;flex-direction:column;align-items:center;justify-content:center}
+    .categories{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:12px}
+    .cat{background:var(--glass);padding:10px;border-radius:8px}
+    .cat h3{margin:0 0 6px;font-size:14px}
+    .cat .params{font-size:13px;color:var(--muted);margin-bottom:8px}
+    .cat .row{display:flex;gap:8px;align-items:center}
+    button{background:var(--accent);border:none;color:#04293a;padding:8px 10px;border-radius:8px;cursor:pointer}
+    button.ghost{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--muted)}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+    table{width:100%;border-collapse:collapse;font-size:13px}
+    th,td{padding:8px;border-bottom:1px dashed rgba(255,255,255,0.03);text-align:left}
+    th{color:var(--muted);font-size:12px}
+    .small{font-size:12px;color:var(--muted)}
+    .controls{display:flex;gap:8px;align-items:center}
+    .muted{color:var(--muted)}
+    .big-number{font-size:20px;font-weight:700}
+    .centered{display:flex;align-items:center;justify-content:center}
+    .footer{display:flex;gap:8px;justify-content:space-between;align-items:center;margin-top:12px}
+    .param-actions{display:flex;gap:6px}
+    @media (max-width:900px){.categories{grid-template-columns:1fr}}
+  </style>
 </head>
-
 <body>
-<div class="container">
-<h1>eFootball 育成ツール</h1>
+  <div class="app" role="application">
+    <h1>eFootball — タレントポイント割り振りツール</h1>
+    <div class="top">
+      <div class="panel" style="max-width:260px">
+        <label>選手レベル (1〜99)</label>
+        <input id="level" type="number" min="1" max="99" value="50" />
+        <p class="small muted">タレントポイント = (レベル - 1) × 2</p>
+        <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
+          <div>
+            <div class="small muted">総タレントポイント</div>
+            <div id="totalTalent" class="big-number">0</div>
+          </div>
+          <div>
+            <div class="small muted">残りポイント</div>
+            <div id="remainingTalent" class="big-number">0</div>
+          </div>
+        </div>
+      </div>
 
-<label>レベル:
-<input type="number" id="level" value="1" min="1" max="100" onchange="updatePoints()">
-</label>
+      <div class="panel center" style="max-width:360px">
+        <label>アディショナルポイント (任意: 任意のパラメータに振れる)</label>
+        <input id="additionalPool" type="number" min="0" value="0" />
+        <div class="small muted" style="margin-top:6px">個別パラメータに1点ずつ割り当て／戻すことができます。</div>
+      </div>
 
-<div class="points">
-残りタレントポイント: <span id="remaining">0</span>
-</div>
+      <div class="panel centered" style="max-width:360px">
+        <label>操作</label>
+        <div style="display:flex;gap:8px">
+          <button id="resetAll" class="ghost">リセット(全て)</button>
+          <button id="saveLocal" class="ghost">保存 (localStorage)</button>
+          <button id="loadLocal" class="ghost">読み込み</button>
+        </div>
+      </div>
+    </div>
 
-<h2>項目振り分け</h2>
-<div id="stats"></div>
+    <div class="categories" id="categories"></div>
 
-<button class="reset-btn" onclick="resetAll()">パラメータリセット</button>
-</div>
+    <div class="grid">
+      <div class="panel">
+        <h3>パラメータ一覧</h3>
+        <table id="paramsTable">
+          <thead>
+            <tr><th>パラメータ</th><th>基礎値</th><th>カテゴリ増加</th><th>アディショナル</th><th>素の合計</th><th>最終表示 (補正後)</th><th></th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
 
-<script>
-const statsData = [
-  {name: "決定力", base: 79},
-  {name: "プレースキック", base: 83},
-  {name: "カーブ", base: 70},
-  {name: "グラウンダーパス", base: 75},
-  {name: "フライパス", base: 74}
-];
+      <div class="panel">
+        <h3>計算の説明</h3>
+        <div class="small muted">
+          ・タレントポイントは <code>(レベル - 1) × 2</code> で計算されます。<br>
+          ・各カテゴリに割り振ると、該当カテゴリに含まれるパラメータがすべて+1されます。<br>
+          ・カテゴリの増加1回ごとのコストは <strong>1,1,1,1,2,2,2,2,3,3,...</strong> のように<br>4回ごとに必要ポイントが1つ増えます（= 次の増加のコストは ceil((現在回数+1)/4)）。<br>
+          ・アディショナルポイントは任意のパラメータを1ずつ上げられます（1ポイント消費）。<br>
+          ・最終補正: 全パラメータに +1、さらに値が56以上なら+1、85以上ならさらに+1。<br>
+          ・各項目にはリセットボタンがあります。
+        </div>
+      </div>
+    </div>
 
-let allocated = Array(statsData.length).fill(0);
+    <div class="footer">
+      <div class="small muted">配置は中央基準で見やすくデザインしています。静的な1ファイル（index.html）なのでGitHub Pagesでそのまま公開できます。</div>
+      <div><small class="muted">作成: eFootball タレントポイントツール</small></div>
+    </div>
+  </div>
 
-function getTotalPoints(level){
-  return level * 2; // 仮ポイント計算
-}
+  <script>
+    // カテゴリ定義 (日本語)
+    const CATEGORIES = [
+      {id:1,name:'① 決定力系', params:['決定力','プレースキック','カーブ']},
+      {id:2,name:'② パス系', params:['グラウンダーパス','フライパス']},
+      {id:3,name:'③ ドリブル系', params:['ドリブル','ボールコントロール','ボールキープ']},
+      {id:4,name:'④ オフェンス/瞬発系', params:['オフェンスセンス','瞬発力','ボディコントロール']},
+      {id:5,name:'⑤ スタミナ系', params:['キック力','スピード','スタミナ']},
+      {id:6,name:'⑥ フィジカル/ヘディング系', params:['ヘディング','ジャンプ','フィジカルコンタクト']},
+      {id:7,name:'⑦ 守備系', params:['ディフェンスセンス','ボール奪取','アグレッシブネス','守備意識']},
+      {id:8,name:'⑧ GK系', params:['GKセンス','ジャンプ']},
+      {id:9,name:'⑨ クリア/ディフレク', params:['クリアリング','ディフレクティング']},
+      {id:10,name:'⑩ GKキャッチ系', params:['キャッチング','コラプシング']}
+    ];
 
-function updatePoints(){
-  const level = parseInt(document.getElementById("level").value);
-  const total = getTotalPoints(level);
-  const used = allocated.reduce((a,b)=>a+b,0);
-  document.getElementById("remaining").textContent = total - used;
-}
+    // パラメータの初期基礎値 (全て50にしておきますが、表で編集できます)
+    const paramNames = Array.from(new Set(CATEGORIES.flatMap(c=>c.params)));
 
-function changeStat(index, amount){
-  const level = parseInt(document.getElementById("level").value);
-  const total = getTotalPoints(level);
-  const used = allocated.reduce((a,b)=>a+b,0);
+    // 状態
+    const state = {
+      level: 50,
+      base: {}, // base values per param
+      categoryCount: {}, // how many times each category has been increased
+      additionalPool: 0,
+      additional: {}, // per param additional assigned
+      remainingTalent: 0
+    };
 
-  if(amount > 0 && used >= total) return;
-  if(allocated[index] + amount < 0) return;
+    paramNames.forEach(p=>{ state.base[p] = 50; state.additional[p] = 0; });
+    CATEGORIES.forEach(c=> state.categoryCount[c.id] = 0);
 
-  allocated[index] += amount;
-  render();
-  updatePoints();
-}
+    // コスト関数: 次の1回に必要なポイント
+    function costForNext(catCount){
+      return Math.ceil((catCount+1)/4);
+    }
 
-function resetAll(){
-  allocated = Array(statsData.length).fill(0);
-  render();
-  updatePoints();
-}
+    function calcTotalTalent(level){
+      return Math.max(0, (Number(level)-1)*2);
+    }
 
-function render(){
-  const container = document.getElementById("stats");
-  container.innerHTML = "";
+    // UI初期化
+    const categoriesEl = document.getElementById('categories');
+    const paramsTableBody = document.querySelector('#paramsTable tbody');
+    const levelInput = document.getElementById('level');
+    const totalTalentEl = document.getElementById('totalTalent');
+    const remainingTalentEl = document.getElementById('remainingTalent');
+    const additionalPoolInput = document.getElementById('additionalPool');
 
-  statsData.forEach((stat, i)=>{
-    const row = document.createElement("div");
-    row.className = "stat-row";
+    function renderCategories(){
+      categoriesEl.innerHTML = '';
+      CATEGORIES.forEach(cat=>{
+        const div = document.createElement('div'); div.className='cat';
+        const h = document.createElement('h3'); h.textContent = cat.name; div.appendChild(h);
+        const p = document.createElement('div'); p.className='params'; p.textContent = cat.params.join('、'); div.appendChild(p);
+        const row = document.createElement('div'); row.className='row';
+        const info = document.createElement('div'); info.style.flex='1';
+        info.innerHTML = `<div class="small muted">増加回数: <strong id="c${cat.id}count">${state.categoryCount[cat.id]}</strong></div>
+        <div class="small muted">次の増加コスト: <strong id="c${cat.id}cost">${costForNext(state.categoryCount[cat.id])}</strong></div>`;
+        row.appendChild(info);
+        const btn = document.createElement('button'); btn.textContent='+1 割り振る';
+        btn.addEventListener('click', ()=>{ allocateCategory(cat.id,1); });
+        row.appendChild(btn);
+        const resetBtn = document.createElement('button'); resetBtn.className='ghost'; resetBtn.textContent='リセット';
+        resetBtn.addEventListener('click', ()=>{ resetCategory(cat.id); });
+        row.appendChild(resetBtn);
+        div.appendChild(row);
+        categoriesEl.appendChild(div);
+      });
+    }
 
-    const label = document.createElement("span");
-    label.textContent = stat.name;
+    function renderParams(){
+      paramsTableBody.innerHTML='';
+      paramNames.forEach(p=>{
+        const tr = document.createElement('tr');
+        const tdName = document.createElement('td'); tdName.textContent = p;
+        const tdBase = document.createElement('td');
+        const baseInput = document.createElement('input'); baseInput.type='number'; baseInput.value=state.base[p]; baseInput.style.width='72px';
+        baseInput.addEventListener('change', ()=>{ state.base[p]=Number(baseInput.value); updateAll(); });
+        tdBase.appendChild(baseInput);
 
-    const minus = document.createElement("button");
-    minus.textContent = "-";
-    minus.onclick = ()=>changeStat(i,-1);
+        const tdCat = document.createElement('td'); tdCat.textContent = categoryContributionForParam(p);
+        const tdAdd = document.createElement('td'); tdAdd.textContent = state.additional[p];
+        const tdRaw = document.createElement('td'); tdRaw.textContent = rawForParam(p);
+        const tdFinal = document.createElement('td'); tdFinal.textContent = finalForParam(p);
+        const tdActions = document.createElement('td');
+        const plusBtn = document.createElement('button'); plusBtn.textContent='+1'; plusBtn.addEventListener('click', ()=>{ allocateAdditional(p,1); });
+        const minusBtn = document.createElement('button'); minusBtn.className='ghost'; minusBtn.textContent='-1'; minusBtn.addEventListener('click', ()=>{ allocateAdditional(p,-1); });
+        const resetBtn = document.createElement('button'); resetBtn.className='ghost'; resetBtn.textContent='リセット'; resetBtn.addEventListener('click', ()=>{ resetParam(p); });
+        tdActions.appendChild(plusBtn); tdActions.appendChild(minusBtn); tdActions.appendChild(resetBtn);
 
-    const value = document.createElement("span");
-    value.textContent = stat.base + allocated[i];
+        tr.appendChild(tdName); tr.appendChild(tdBase); tr.appendChild(tdCat); tr.appendChild(tdAdd); tr.appendChild(tdRaw); tr.appendChild(tdFinal); tr.appendChild(tdActions);
+        paramsTableBody.appendChild(tr);
+      });
+    }
 
-    const plus = document.createElement("button");
-    plus.textContent = "+";
-    plus.onclick = ()=>changeStat(i,1);
+    function categoryContributionForParam(param){
+      // Sum of category increments for categories that contain this param
+      let sum=0;
+      CATEGORIES.forEach(c=>{ if(c.params.includes(param)) sum += state.categoryCount[c.id]; });
+      return sum;
+    }
 
-    row.appendChild(label);
-    row.appendChild(minus);
-    row.appendChild(value);
-    row.appendChild(plus);
+    function rawForParam(param){
+      return Number(state.base[param]) + categoryContributionForParam(param) + Number(state.additional[param]);
+    }
 
-    container.appendChild(row);
-  });
-}
+    function finalForParam(param){
+      let v = rawForParam(param);
+      v = v + 1; // global +1
+      if(v >= 56) v = v + 1;
+      if(v >= 85) v = v + 1;
+      return v;
+    }
 
-render();
-updatePoints();
-</script>
+    function allocateCategory(catId, times){
+      // allocate 'times' increments one-by-one to respect cost progression
+      for(let i=0;i<times;i++){
+        const cost = costForNext(state.categoryCount[catId]);
+        if(state.remainingTalent >= cost){
+          state.remainingTalent -= cost;
+          state.categoryCount[catId] += 1;
+        } else {
+          alert('残りタレントポイントが足りません');
+          break;
+        }
+      }
+      updateAll();
+    }
+
+    function resetCategory(catId){
+      // refund all points spent on this category back to remaining
+      const cnt = state.categoryCount[catId];
+      if(cnt===0) return;
+      // compute spent points for cnt increases: sum_{n=1..cnt} ceil(n/4)
+      let spent=0; for(let n=1;n<=cnt;n++) spent += Math.ceil(n/4);
+      state.categoryCount[catId]=0;
+      state.remainingTalent += spent;
+      updateAll();
+    }
+
+    function allocateAdditional(param, delta){
+      if(delta>0){
+        if(state.additionalPool >= delta){ state.additional[param] += delta; state.additionalPool -= delta; }
+        else { alert('アディショナルポイントが足りません'); }
+      } else {
+        // remove points and refund to pool
+        const canRemove = Math.min(state.additional[param], -delta);
+        state.additional[param] -= canRemove; state.additionalPool += canRemove;
+      }
+      updateAll();
+    }
+
+    function resetParam(param){
+      state.additionalPool += state.additional[param]; state.additional[param]=0; updateAll();
+    }
+
+    function resetAll(){
+      if(!confirm('本当に全てリセットしますか？')) return;
+      state.level = 50; levelInput.value = 50;
+      state.additionalPool = 0; additionalPoolInput.value = 0;
+      paramNames.forEach(p=>{ state.base[p]=50; state.additional[p]=0; });
+      CATEGORIES.forEach(c=> state.categoryCount[c.id]=0);
+      updateAll();
+    }
+
+    function saveLocal(){
+      const data = {level: state.level, base: state.base, cat: state.categoryCount, additionalPool: state.additionalPool, additional: state.additional};
+      localStorage.setItem('efb_talent_tool', JSON.stringify(data));
+      alert('保存しました (localStorage)');
+    }
+    function loadLocal(){
+      const raw = localStorage.getItem('efb_talent_tool'); if(!raw){ alert('保存データが見つかりません'); return; }
+      const data = JSON.parse(raw);
+      state.level = data.level || 50; levelInput.value = state.level;
+      state.base = data.base || state.base;
+      state.categoryCount = data.cat || state.categoryCount;
+      state.additionalPool = data.additionalPool || 0; additionalPoolInput.value = state.additionalPool;
+      state.additional = data.additional || state.additional;
+      updateAll();
+      alert('読み込み完了');
+    }
+
+    function updateAll(){
+      state.level = Number(levelInput.value);
+      state.additionalPool = Number(additionalPoolInput.value);
+      const total = calcTotalTalent(state.level);
+      // compute spent on categories
+      let spent=0; for(const id in state.categoryCount){ const cnt = state.categoryCount[id]; for(let n=1;n<=cnt;n++) spent += Math.ceil(n/4); }
+      // remainingTalent = total - spent
+      state.remainingTalent = total - spent;
+      if(state.remainingTalent < 0) state.remainingTalent = 0;
+      totalTalentEl.textContent = total;
+      remainingTalentEl.textContent = state.remainingTalent;
+
+      // update category displays
+      CATEGORIES.forEach(c=>{
+        const cntEl = document.getElementById(`c${c.id}count`);
+        const costEl = document.getElementById(`c${c.id}cost`);
+        if(cntEl) cntEl.textContent = state.categoryCount[c.id];
+        if(costEl) costEl.textContent = costForNext(state.categoryCount[c.id]);
+      });
+
+      // Update table
+      renderParams();
+
+      // Update param cells that show categoryContribution etc are updated via renderParams
+    }
+
+    // Buttons
+    document.getElementById('resetAll').addEventListener('click', resetAll);
+    document.getElementById('saveLocal').addEventListener('click', saveLocal);
+    document.getElementById('loadLocal').addEventListener('click', loadLocal);
+
+    levelInput.addEventListener('change', updateAll);
+    additionalPoolInput.addEventListener('change', ()=>{ state.additionalPool = Number(additionalPoolInput.value); updateAll(); });
+
+    // 初期レンダリング
+    renderCategories();
+    updateAll();
+
+  </script>
 </body>
 </html>
