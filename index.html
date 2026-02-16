@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>eFootball 育成ツール</title>
+<style>
+body { font-family: Arial; }
+table { border-collapse: collapse; margin-bottom: 20px; }
+td, th { border: 1px solid #ccc; padding: 5px; text-align: center; }
+button { width: 30px; }
+input { width: 60px; }
+</style>
+</head>
+<body>
+
+<h2>eFootball 育成ツール</h2>
+
+レベル: <input type="number" id="level" value="1" onchange="calculate()">
+
+<p>残りタレントポイント: <span id="remaining">0</span></p>
+
+<h3>項目振り分け</h3>
+<table id="talentTable"></table>
+
+<h3>パラメータ</h3>
+<table id="statsTable"></table>
+
+<script>
+
+const groups = {
+1: ["決定力","プレースキック","カーブ"],
+2: ["グラウンダーパス","フライパス"],
+3: ["ドリブル","ボールコントロール","ボールキープ"],
+4: ["オフェンスセンス","瞬発力","ボディコントロール"],
+5: ["キック力","スピード","スタミナ"],
+6: ["ヘディング","ジャンプ","フィジカルコンタクト"],
+7: ["ディフェンスセンス","ボール奪取","アグレッシブネス","守備意識"],
+8: ["GKセンス","ジャンプ"],
+9: ["クリアリング","ディフレクティング"],
+10:["キャッチング","コラプシング"]
+};
+
+let growthCount = {};
+let additional = {};
+let baseStats = {};
+
+for(let i=1;i<=10;i++) growthCount[i]=0;
+
+function cost(n){
+return Math.floor(n/4)+1;
+}
+
+function calculate(){
+
+let level = parseInt(document.getElementById("level").value)||1;
+let totalPoints = (level-1)*2;
+
+let used=0;
+
+for(let i=1;i<=10;i++){
+for(let j=0;j<growthCount[i];j++){
+used += cost(j);
+}
+}
+
+let remaining = totalPoints - used;
+document.getElementById("remaining").innerText = remaining;
+
+let finalStats={};
+
+// base stats
+document.querySelectorAll(".base").forEach(input=>{
+baseStats[input.dataset.stat] = parseInt(input.value)||0;
+});
+
+// initialize
+for(let stat in baseStats){
+finalStats[stat] = baseStats[stat];
+}
+
+// apply growth
+for(let i=1;i<=10;i++){
+groups[i].forEach(stat=>{
+finalStats[stat]+=growthCount[i];
+});
+}
+
+// apply additional
+for(let stat in additional){
+finalStats[stat]+=additional[stat];
+}
+
+// final correction
+for(let stat in finalStats){
+finalStats[stat]+=1;
+if(finalStats[stat]>=56) finalStats[stat]+=1;
+if(finalStats[stat]>=85) finalStats[stat]+=1;
+}
+
+// update display
+document.querySelectorAll(".final").forEach(td=>{
+td.innerText = finalStats[td.dataset.stat];
+});
+
+}
+
+function changeTalent(i,delta){
+let level = parseInt(document.getElementById("level").value)||1;
+let totalPoints = (level-1)*2;
+
+let used=0;
+for(let g=1;g<=10;g++){
+for(let j=0;j<growthCount[g];j++){
+used+=cost(j);
+}
+}
+
+let nextCost = cost(growthCount[i]);
+
+if(delta>0 && used+nextCost>totalPoints) return;
+if(delta<0 && growthCount[i]<=0) return;
+
+growthCount[i]+=delta;
+document.getElementById("g"+i).innerText=growthCount[i];
+
+calculate();
+}
+
+function addAdditional(stat){
+if(!additional[stat]) additional[stat]=0;
+additional[stat]++;
+calculate();
+}
+
+// build talent table
+let tTable=document.getElementById("talentTable");
+for(let i=1;i<=10;i++){
+let row=tTable.insertRow();
+row.insertCell().innerText=i;
+let minus=row.insertCell();
+minus.innerHTML='<button onclick="changeTalent('+i+',-1)">-</button>';
+row.insertCell().innerHTML='<span id="g'+i+'">0</span>';
+let plus=row.insertCell();
+plus.innerHTML='<button onclick="changeTalent('+i+',1)">+</button>';
+}
+
+// build stats table
+let sTable=document.getElementById("statsTable");
+
+let allStats=new Set();
+for(let i=1;i<=10;i++){
+groups[i].forEach(stat=>allStats.add(stat));
+}
+
+allStats.forEach(stat=>{
+let row=sTable.insertRow();
+row.insertCell().innerText=stat;
+row.insertCell().innerHTML='<input class="base" data-stat="'+stat+'" value="0" onchange="calculate()">';
+row.insertCell().innerHTML='<button onclick="addAdditional(\''+stat+'\')">+A</button>';
+row.insertCell().innerHTML='<span class="final" data-stat="'+stat+'">0</span>';
+});
+
+calculate();
+
+</script>
+
+</body>
+</html>
