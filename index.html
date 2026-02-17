@@ -64,17 +64,14 @@
       </div>
 
       <div class="panel center" style="max-width:360px">
-        <label>アディショナルポイント (任意: 任意のパラメータに振れる)</label>
-        <input id="additionalPool" type="number" min="0" value="0" />
-        <div class="small muted" style="margin-top:6px">個別パラメータに1点ずつ割り当て／戻すことができます。</div>
+        <label>アディショナルポイント</label>
+        <div class="small muted" style="margin-top:6px">アディショナルポイントは無制限です。任意のパラメータに何度でも割り振ることができます（-1で戻せます）。</div>
       </div>
 
       <div class="panel centered" style="max-width:360px">
         <label>操作</label>
         <div style="display:flex;gap:8px">
           <button id="resetAll" class="ghost">リセット(全て)</button>
-          <button id="saveLocal" class="ghost">保存 (localStorage)</button>
-          <button id="loadLocal" class="ghost">読み込み</button>
         </div>
       </div>
     </div>
@@ -101,7 +98,7 @@
           ・タレントポイントは <code>(レベル - 1) × 2</code> で計算されます。<br>
           ・各カテゴリに割り振ると、該当カテゴリに含まれるパラメータがすべて+1されます。<br>
           ・カテゴリの増加1回ごとのコストは <strong>1,1,1,1,2,2,2,2,3,3,...</strong> のように<br>4回ごとに必要ポイントが1つ増えます（= 次の増加のコストは ceil((現在回数+1)/4)）。<br>
-          ・アディショナルポイントは任意のパラメータを1ずつ上げられます（1ポイント消費）。<br>
+          ・アディショナルポイントは無制限で、任意のパラメータに何度でも割り振れます（-1で戻せます）。<br>
           ・最終補正: 全パラメータに +1、さらに値が56以上なら+1、85以上ならさらに+1。<br>
           ・各項目にはリセットボタンがあります。
         </div>
@@ -109,13 +106,13 @@
 
       <div class="panel">
         <h3>操作ヘルプ</h3>
-        <div class="small muted">左のカラムは選手のオフェンス/パス/ドリブル系を中心、右のカラムは守備/GK/フィジカル系を中心に並べています。各パラメータは個別に基礎値を編集でき、アディショナルポイントで増減できます。</div>
+        <div class="small muted">左のカラムは選手のオフェンス/パス/ドリブル系を中心、右のカラムは守備/GK/フィジカル系を中心に並べています。各パラメータは個別に基礎値を編集でき、アディショナルで増減できます。</div>
       </div>
     </div>
 
     <div class="footer">
       <div class="small muted">配置は中央基準で見やすくデザインしています。静的な1ファイル（index.html）なのでGitHub Pagesでそのまま公開できます。</div>
-      <div><small class="muted">作成: eFootball タレントポイントツール</small></div>
+      <div><small class="muted">作成: KAZOO</small></div>
     </div>
   </div>
 
@@ -126,7 +123,7 @@
       {id:2,name:'② パス系', params:['グラウンダーパス','フライパス']},
       {id:3,name:'③ ドリブル系', params:['ドリブル','ボールコントロール','ボールキープ']},
       {id:4,name:'④ オフェンス/瞬発系', params:['オフェンスセンス','瞬発力','ボディコントロール']},
-      {id:5,name:'⑤ スタミナ系', params:['キック力','スピード','スタミナ']},
+      {id:5,name:'⑤ スピード系', params:['キック力','スピード','スタミナ']},
       {id:6,name:'⑥ フィジカル/ヘディング系', params:['ヘディング','ジャンプ','フィジカルコンタクト']},
       {id:7,name:'⑦ 守備系', params:['ディフェンスセンス','ボール奪取','アグレッシブネス','守備意識']},
       {id:8,name:'⑧ GK系', params:['GKセンス','ジャンプ']},
@@ -146,8 +143,7 @@
       level: 50,
       base: {}, // base values per param
       categoryCount: {}, // how many times each category has been increased
-      additionalPool: 0,
-      additional: {}, // per param additional assigned
+      additional: {}, // per param additional assigned (無制限)
       remainingTalent: 0
     };
 
@@ -173,7 +169,6 @@
     const levelInput = document.getElementById('level');
     const totalTalentEl = document.getElementById('totalTalent');
     const remainingTalentEl = document.getElementById('remainingTalent');
-    const additionalPoolInput = document.getElementById('additionalPool');
 
     function renderCategories(){
       categoriesEl.innerHTML = '';
@@ -238,11 +233,11 @@
     }
 
     function getFinalColor(v){
-      // 70未満: 赤, 70〜79: オレンジ, 80〜89: 緑, 90以上: 青
-      if(v < 70) return '#ef4444';
-      if(v < 80) return '#f97316';
-      if(v < 90) return '#10b981';
-      return '#3b82f6';
+      // カラーコード: 赤:#ff0000, オレンジ:#ffc700, 緑:#5cff00, 青:#00ffd2
+      if(v < 70) return '#ff0000';
+      if(v < 80) return '#ffc700';
+      if(v < 90) return '#5cff00';
+      return '#00ffd2';
     }
 
     function renderParamColumns(){
@@ -267,6 +262,7 @@
       let v = rawForParam(param);
       v = v + 1; // global +1
       if(v >= 56) v = v + 1;
+      // 正しくは85以上でさらに+1
       if(v >= 85) v = v + 1;
       return v;
     }
@@ -300,56 +296,36 @@
 
     function allocateAdditional(param, delta){
       if(delta>0){
-        if(state.additionalPool >= delta){ state.additional[param] += delta; state.additionalPool -= delta; }
-        else { alert('アディショナルポイントが足りません'); }
+        state.additional[param] += delta; // 無制限に増加
       } else {
         const canRemove = Math.min(state.additional[param], -delta);
-        state.additional[param] -= canRemove; state.additionalPool += canRemove;
+        if(canRemove<=0){ alert('これ以上アディショナルを減らせません'); return; }
+        state.additional[param] -= canRemove;
       }
       updateAll();
     }
 
     function resetParam(param){
-      state.additionalPool += state.additional[param]; state.additional[param]=0; updateAll();
+      state.additional[param]=0; updateAll();
     }
 
     function resetAll(){
       if(!confirm('本当に全てリセットしますか？')) return;
       state.level = 50; levelInput.value = 50;
-      state.additionalPool = 0; additionalPoolInput.value = 0;
       paramNames.forEach(p=>{ state.base[p]=50; state.additional[p]=0; });
       ['GKセンス','キャッチング','クリアリング','コラプシング','ディフレクティング'].forEach(p=>{ if(state.base[p]!==undefined) state.base[p]=40; });
       CATEGORIES.forEach(c=> state.categoryCount[c.id]=0);
       updateAll();
     }
 
-    function saveLocal(){
-      const data = {level: state.level, base: state.base, cat: state.categoryCount, additionalPool: state.additionalPool, additional: state.additional};
-      localStorage.setItem('efb_talent_tool', JSON.stringify(data));
-      alert('保存しました (localStorage)');
-    }
-    function loadLocal(){
-      const raw = localStorage.getItem('efb_talent_tool'); if(!raw){ alert('保存データが見つかりません'); return; }
-      const data = JSON.parse(raw);
-      state.level = data.level || 50; levelInput.value = state.level;
-      state.base = data.base || state.base;
-      state.categoryCount = data.cat || state.categoryCount;
-      state.additionalPool = data.additionalPool || 0; additionalPoolInput.value = state.additionalPool;
-      state.additional = data.additional || state.additional;
-      updateAll();
-      alert('読み込み完了');
-    }
-
     function updateAll(){
       state.level = Number(levelInput.value);
-      state.additionalPool = Number(additionalPoolInput.value);
       const total = calcTotalTalent(state.level);
       let spent=0; for(const id in state.categoryCount){ const cnt = state.categoryCount[id]; for(let n=1;n<=cnt;n++) spent += Math.ceil(n/4); }
       state.remainingTalent = total - spent;
       if(state.remainingTalent < 0) state.remainingTalent = 0;
       totalTalentEl.textContent = total;
       remainingTalentEl.textContent = state.remainingTalent;
-      additionalPoolInput.value = state.additionalPool;
 
       CATEGORIES.forEach(c=>{
         const cntEl = document.getElementById(`c${c.id}count`);
@@ -365,11 +341,7 @@
     }
 
     document.getElementById('resetAll').addEventListener('click', resetAll);
-    document.getElementById('saveLocal').addEventListener('click', saveLocal);
-    document.getElementById('loadLocal').addEventListener('click', loadLocal);
-
     levelInput.addEventListener('change', updateAll);
-    additionalPoolInput.addEventListener('change', ()=>{ state.additionalPool = Number(additionalPoolInput.value); updateAll(); });
 
     // 初期レンダリング
     renderCategories();
